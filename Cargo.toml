@@ -1,0 +1,14 @@
+[package]
+name = "sron"
+version = "0.1.0"
+edition = "2021"
+authors = ["Archibald Neil MacDonald <archibaldnmac@gmail.com>"]
+readme = "README.md"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { version = "^1.17.0", features = ["time", "rt", "macros", "rt-multi-thread"] }
+hyper = { version = "^0.14.17", features = ["client", "http1", "http2", "tcp"] }
+futures = "^0.3.21"
+clap = { version = "3.1.1", features = ["derive"] }
