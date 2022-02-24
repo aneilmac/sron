@@ -14,13 +14,69 @@ async fn durations() {
         client,
         std::iter::repeat_with(|| client_mocks::latency_request(10)),
     )
-    .await
-    .collect::<Vec<_>>();
+    .await;
 
     assert_eq!(request_times.len(), 5);
     assert!(request_times
         .into_iter()
         .all(|(_, d)| d.unwrap() > Duration::from_millis(10)));
+}
+
+
+#[tokio::test]
+async fn instants_ordered() {
+    let client = client_mocks::new_latency_client();
+
+    let period = Duration::from_millis(2);
+
+    let times = request_at_rate(
+        period,
+        Duration::from_millis(10),
+        Duration::MAX,
+        client,
+        std::iter::repeat_with(|| client_mocks::latency_request(1)),
+    )
+    .await;
+    assert_eq!(times.len(), 5);
+
+    let mut q = times.iter();
+    let _ = q.next();
+    let ts = times.iter().zip(q);
+    for (a, b) in ts {
+        let a = a.0;
+        let b = b.0;
+        assert!(a < b, "{:?} >= {:?}", b, a);
+    }
+}
+
+#[tokio::test]
+async fn instants_in_period_low_lat() {
+    let client = client_mocks::new_latency_client();
+
+    let period = Duration::from_millis(2);
+
+    let times = request_at_rate(
+        period,
+        Duration::from_millis(10),
+        Duration::MAX,
+        client,
+        std::iter::repeat_with(|| client_mocks::latency_request(0)),
+    )
+    .await;
+    assert_eq!(times.len(), 5);
+
+    let times = times.into_iter().map(|(t, _)| t);
+
+    // Generate ranges [(0, period), (period, 2 * period), (2 * period, 3 * period), ...]
+    let ranges = std::iter::successors(Some((Duration::ZERO, period)), |(a, b)| {
+        a.checked_add(period)
+            .and_then(|a| b.checked_add(period).map(|b| (a, b)))
+    });
+    println!("{:?}", times);
+    for (i, ((lower, upper), t)) in ranges.zip(times).enumerate() {
+        assert!(lower <= t, "lower bounds check failed with {:?} <= {:?}, idx: {}", lower, t, i);
+        assert!(t < upper, "upper bounds check failed with {:?} < {:?}, idx: {}", t, upper, i);
+    }
 }
 
 #[tokio::test]
@@ -38,8 +94,7 @@ async fn coordinated_omission_durations() {
         client,
         requests,
     )
-    .await
-    .collect::<Vec<_>>();
+    .await;
 
     assert_eq!(request_times.len(), 10);
     assert!(request_times[0].1.unwrap() >= Duration::from_millis(10));
@@ -67,8 +122,7 @@ async fn timeout() {
         client,
         requests,
     )
-    .await
-    .collect::<Vec<_>>();
+    .await;
 
     assert_eq!(request_times.len(), 5);
     assert!(request_times[0].1.is_timeout());

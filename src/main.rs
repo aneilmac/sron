@@ -46,7 +46,6 @@ async fn main() {
     )
     .await;
 
-    let results = results.collect::<Vec<_>>();
     let timeouts = results.iter().filter(|e| e.1.is_timeout()).count();
     if timeouts > 0 {
         eprintln!(
