@@ -1,6 +1,6 @@
 use clap::Parser;
 use hyper::{body::Body, client::Client, Request};
-use sron::{Elapsed, request_at_rate};
+use sron::{request_at_rate, Elapsed};
 use tokio::time::Duration;
 
 /// Fixed-rate latency tester.
@@ -19,7 +19,7 @@ struct Args {
     #[clap(short, long, parse(try_from_str=duration_str::parse), default_value="60s")]
     timeout: Duration,
 
-    /// List of 1 or more Urls to cycle through for each 
+    /// List of 1 or more Urls to cycle through for each
     #[clap(last = true)]
     urls: Vec<hyper::Uri>,
 }
@@ -46,10 +46,13 @@ async fn main() {
     )
     .await;
 
-    let results = results.expect("Not all requests successfully completed.");
+    let results = results.collect::<Vec<_>>();
     let timeouts = results.iter().filter(|e| e.1.is_timeout()).count();
     if timeouts > 0 {
-        eprintln!("{} requests timed out with latency >= {:?}", timeouts, args.timeout);
+        eprintln!(
+            "{} requests timed out with latency >= {:?}",
+            timeouts, args.timeout
+        );
     }
     for (_, d) in results {
         if let Elapsed::Success(d) = d {

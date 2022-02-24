@@ -10,10 +10,12 @@ use std::future::Future;
 use std::pin::Pin;
 use tokio::time;
 
+pub type LatencyClient = Client<TimedConnector, Body>;
+
 /// Builds a new Client object which **only** handles requests with URI
 /// `withlatency://<u64>`. Each request takes at least `<u64>` ms to complete.
 /// See [latency_request] for conveniently building such a request.
-pub fn new_latency_client() -> Client<TimedConnector, Body> {
+pub fn new_latency_client() -> LatencyClient {
     Client::builder().build(TimedConnector::new())
 }
 
@@ -47,14 +49,13 @@ impl Service<Uri> for TimedConnector {
     fn call(&mut self, u: Uri) -> Self::Future {
         // Attempts to extract latency from URI, and sleeps for that amount
         // of time.
-        let latency;
+        let latency: u64;
         if let Some("withlatency") = u.scheme_str() {
-            let l: u64 = u
+            latency = u
                 .host()
                 .expect("Host value")
                 .parse()
                 .expect("Expected u64 as host name.");
-            latency = l;
         } else {
             panic!("Only accepts 'changelatency' scheme, use [latency_request] method.")
         }

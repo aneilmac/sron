@@ -2,13 +2,12 @@ use futures::future::join_all;
 use hyper::{body::HttpBody, client::connect::Connect};
 use hyper::{Client, Request};
 use std::error::Error;
-use tokio::task::JoinError;
 use tokio::time::{sleep_until, Duration, Instant};
 
 #[derive(Clone, Copy, Debug)]
 pub enum Elapsed {
     Success(Duration),
-    Timeout
+    Timeout,
 }
 
 impl Elapsed {
@@ -19,14 +18,14 @@ impl Elapsed {
     pub fn is_timeout(&self) -> bool {
         match self {
             Elapsed::Success(_) => false,
-            Elapsed::Timeout => true
+            Elapsed::Timeout => true,
         }
     }
 
     pub fn unwrap(self) -> Duration {
         match self {
             Elapsed::Success(d) => d,
-            Elapsed::Timeout => panic!("Attempting to unwrap an Elapsed::Timeout.")
+            Elapsed::Timeout => panic!("Attempting to unwrap an Elapsed::Timeout."),
         }
     }
 }
@@ -46,7 +45,7 @@ pub async fn request_at_rate<C, B>(
     timeout: Duration,
     client: Client<C, B>,
     reqs: impl IntoIterator<Item = Request<B>>,
-) -> Result<Vec<(Instant, Elapsed)>, JoinError>
+) -> impl Iterator<Item = (Instant, Elapsed)>
 where
     C: Clone + Send + Sync + Connect + 'static,
     B: Send + HttpBody + 'static,
@@ -55,18 +54,14 @@ where
 {
     let start = Instant::now();
 
-    let mut v = Vec::<_>::new();
-    let mut i = Duration::ZERO;
-    for req in reqs {
-        // Don't run for longer than duration.
-        if i >= duration {
-            break;
-        }
-
-        let client = client.clone();
-        // For each request, in-order, send a request at the given
-        // time-point.
-        v.push(tokio::spawn(async move {
+    let v = std::iter::successors(Some(Duration::ZERO), |d| {
+        d.checked_add(period)
+            .and_then(|d| if d < duration { Some(d) } else { None })
+    })
+    .zip(std::iter::repeat(client))
+    .zip(reqs.into_iter())
+    .map(|((i, client), req)| {
+        async move {
             sleep_until(start + i).await;
             let request_start = Instant::now();
             let res = tokio::time::timeout(timeout, client.request(req)).await;
@@ -75,12 +70,10 @@ where
                 (request_start, Elapsed::new(request_start.elapsed()))
             } else {
                 // Request timed out.
-                (request_start, Elapsed::Timeout)    
+                (request_start, Elapsed::Timeout)
             }
-        }));
-        i += period;
-    } 
-
+        }
+    });
     // Wait for all requests to complete.
-    join_all(v).await.into_iter().collect()
+    join_all(v).await.into_iter()
 }

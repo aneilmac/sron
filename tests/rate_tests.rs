@@ -15,7 +15,7 @@ async fn durations() {
         std::iter::repeat_with(|| client_mocks::latency_request(10)),
     )
     .await
-    .expect("Successful client runs");
+    .collect::<Vec<_>>();
 
     assert_eq!(request_times.len(), 5);
     assert!(request_times
@@ -39,7 +39,7 @@ async fn coordinated_omission_durations() {
         requests,
     )
     .await
-    .expect("Successful client runs");
+    .collect::<Vec<_>>();
 
     assert_eq!(request_times.len(), 10);
     assert!(request_times[0].1.unwrap() >= Duration::from_millis(10));
@@ -68,7 +68,7 @@ async fn timeout() {
         requests,
     )
     .await
-    .expect("Successful client runs");
+    .collect::<Vec<_>>();
 
     assert_eq!(request_times.len(), 5);
     assert!(request_times[0].1.is_timeout());
