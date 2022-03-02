@@ -72,7 +72,7 @@ where
                 (start_time, Elapsed::new(end_time))
             } else {
                 // Request timed out.
-                (duration, Elapsed::Timeout)
+                (start_time, Elapsed::Timeout)
             }
         }));
         i += period;
