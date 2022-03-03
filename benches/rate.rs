@@ -5,13 +5,13 @@ use hyper::Request;
 use tokio::runtime::Runtime;
 use tokio::time::Duration;
 
-async fn durations(client: client_mocks::LatencyClient, its: Vec<Request<hyper::Body>>) {
+async fn durations(client: client_mocks::LatencyClient, reqs: Vec<Request<hyper::Body>>) {
     let _ = sron::request_at_rate(
         Duration::from_millis(1),
         Duration::from_millis(5),
         Duration::MAX,
         client,
-        its,
+        reqs,
     )
     .await;
 }

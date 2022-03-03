@@ -900,6 +900,7 @@ dependencies = [
  "duration-str",
  "futures",
  "hyper",
+ "serde_json",
  "tokio",
 ]
 

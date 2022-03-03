@@ -1,8 +1,8 @@
 use hyper::{body::HttpBody, client::connect::Connect};
 use hyper::{Client, Request};
+use std::collections::LinkedList;
 use std::error::Error;
 use tokio::time::{Duration, Instant};
-use std::collections::LinkedList;
 
 #[derive(Clone, Copy, Debug)]
 pub enum Elapsed {
@@ -13,6 +13,13 @@ pub enum Elapsed {
 impl Elapsed {
     pub fn new(d: Duration) -> Elapsed {
         Elapsed::Success(d)
+    }
+
+    pub fn into_inner(self) -> Option<Duration> {
+        match self {
+            Elapsed::Success(d) => Some(d),
+            Elapsed::Timeout => None,
+        }
     }
 
     pub fn is_timeout(&self) -> bool {
@@ -51,7 +58,7 @@ where
     B: Send + HttpBody + 'static,
     <B as HttpBody>::Data: Send,
     <B as HttpBody>::Error: Into<Box<(dyn Error + Send + Sync)>>,
-{   
+{
     let mut i = Duration::ZERO;
     let mut interval = tokio::time::interval(period);
     let mut ll = LinkedList::<_>::new();
@@ -77,5 +84,7 @@ where
         }));
         i += period;
     }
-    futures::future::try_join_all(ll).await.expect("No JoinError")
+    futures::future::try_join_all(ll)
+        .await
+        .expect("No JoinError")
 }
